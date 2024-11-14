@@ -1,0 +1,53 @@
+$phone-screen-xs = 20em
+$phone-screen    = 34em
+$tablet-screen    = 48em
+$desktop-screen   = 62em
+
+$screen     = "only screen";
+$phone-xs   = "only screen and (max-width: " + $phone-screen-xs + ")"
+$phone      = "only screen and (max-width: " + $phone-screen + ")"
+$tablet     = "only screen and (min-width: " + $tablet-screen + ")"
+$desktop    = "only screen and (min-width: " + $desktop-screen + ")"
+$landscape  = "only screen and (orientation: landscape)"
+$portrait   = "only screen and (orientation: portrait)"
+
+
+$dark = #353535
+$light = #eee
+
+$color = $dark
+$color-light = #8c9398
+$hero-span-color = #a1a9b0
+$cta-bg = rgba(61, 201, 179, 1)
+$cta-color = #fff
+
+
+
+$yellow = #efc431
+$blue = #00cbff
+
+
+gradientBorder()
+    background alpha(#000, 100%)
+    background-clip padding-box
+    /* !importanté */
+    border solid 5px transparent
+    color #fff
+    position relative
+    border-top-right-radius 30px
+    border-bottom-left-radius 30px
+    
+    &:before
+      content: ''
+      position: absolute
+      top 0
+      right 0
+      bottom 0
+      left 0
+      z-index -1
+      margin -5px
+      /* !importanté */
+      border-radius inherit
+      /* !importanté */
+      background -webkit-gradient(linear, left top, right top, from(#b861c6), to(#ffc7c7))
+      background linear-gradient(to right, #b861c6 0%,#ffc7c7 100%)
