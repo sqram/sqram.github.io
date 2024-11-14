@@ -1,0 +1,53 @@
+[{
+    "name": "crunchbox",
+    "url": "https://github.com/sqram/crunchbox",
+    "short-description": "Save and load desktop UI on the fly.",
+    "long-description": "After you set your desktop the way you like, Crunchbox lets you save that desktop state (even takes a screenshot!). Later, you can switch back to that state by clicking on the screenshot.",
+    "screenshots": [
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/crunchbox-1.png",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/crunchbox-2.png",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/crunchbox-3.png"
+    ]
+}, {
+    "name": "dorothy",
+    "url": "https://github.com/sqram/dorothy",
+    "short-description": "A poor man's clone of Alfred for linux.",
+    "long-description": "After you set your desktop the way you like, Crunchbox lets you save that desktop state (even takes a screenshot!). Later, you can switch back to that state by clicking on the screenshot.",
+    "screenshots": [
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/dorothy-1.jpg",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/dorothy-2.jpg",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/dorothy-3.jpg"
+    ]
+}, {
+    "name": "cally",
+    "url": "https://github.com/sqram/Cally",
+    "short-description": "Simple interactive conky-like calendar.",
+    "long-description": "A very simple configurable calendar that lets you add notes to the days. Requires a composite desktop for transparency (try xcompmgr).",
+    "screenshots": [
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/cally-1.jpg",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/cally-2.jpg",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/cally-3.jpg"
+    ]
+}, {
+    "name": "unbloat",
+    "url": "https://github.com/sqram/Unbloat",
+    "short-description": "Find unused html, css, and images in your code.",
+    "long-description": "Helps front-end developers unbloat code for extra optimization! Select your site's CSS file in the first drop down menu, and select the site's root directory on the right. Unbloat will look for images and css selectors what are not being used anywhere on the site.",
+    "screenshots": [
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/unbloat-1.jpg",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/unbloat-2.jpg",
+        "https://storage.googleapis.com/sqram-site.appspot.com/images/software/unbloat-3.jpg"
+    ]
+}, {
+    "name": "duplycate",
+    "url": "https://github.com/sqram/Duplycate",
+    "short-description": "Clone a directory structure.",
+    "long-description": "Helps front-end developers unbloat code for extra optimization! Select your site's CSS file in the first drop down menu, and select the site's root directory on the right. Unbloat will look for images and css selectors what are not being used anywhere on the site.",
+    "screenshots": []
+}, {
+    "name": "reload on save",
+    "url": "https://github.com/sqram/Reload-On-Save",
+    "short-description": "Gedit plugin to reload firefox when document is saved.",
+    "long-description": "A plugin for Gedit that automatically reloads the current page on Firefox when you save your document in Gedit. Very useful for web developers - you no longer have to save, switch to Firefox, reload to see changes, and then go back to Gedit to continue coding. Simply just save.",
+    "screenshots": []
+}]

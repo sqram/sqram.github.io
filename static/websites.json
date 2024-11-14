@@ -1,0 +1,38 @@
+[
+    {
+        "name" : "steve crobs",
+        "url": "http://crobs.sqr.am",
+        "description" : "Searches craigslist for telecommuting jobs based on your search term.",
+        "tags" : ["python", "webapp2", "preact"],
+        "screenshots" : [
+            "/img/websites/crobs.jpg"
+        ]
+    },
+    {
+        "name" : "tinystring ",
+        "url": "http://tinystr.in",
+        "description" : "A URL shortener. (like bit.ly, etc).",
+        "tags" : ["python", "webapp2", "datastore"],
+        "screenshots" : [
+            "/img/websites/tinystring.jpg"
+        ]
+    },
+    {
+        "name" : "tabbit pastebin",
+        "url": "http://tabbit.org",
+        "description" : "Pastebin that has tabs and allows image uploads. Basiclly a pastebin on roids",
+        "tags" : ["python", "webapp2", "datastore", "preact"],
+        "screenshots" : [
+            "/img/websites/tabbit.jpg"
+        ]
+    },    
+    {
+        "name" : "RegexBox",
+        "url": "http://regexbox.com",
+        "description" : "Regex repository",
+        "tags" : ["python", "webapp2", "datastore", "vuejs"],
+        "screenshots" : [
+            "/img/websites/regexbox.jpg"
+        ]
+    }
+]
