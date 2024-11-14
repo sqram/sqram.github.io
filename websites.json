@@ -3,7 +3,7 @@
         "name" : "bnbcrate.com",
         "url": "https://bnbcrate.com",
         "description" : "A little business idea I once tried. Defunct, but site still exists.",
-        "tags" : ["koa.js", "vue.js", "gcloud datastore", "gcloud functions"],
+        "tags" : ["koa.js", "vue.js", "gcloud datastore", "gcloud functions", "sripe"],
         "screenshots" : [
             "/img/websites/bnbcrate.jpg"
         ]
