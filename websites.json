@@ -3,18 +3,27 @@
         "name" : "bnbcrate.com",
         "url": "https://bnbcrate.com",
         "description" : "A little business idea I once tried. Defunct, but site still exists.",
-        "tags" : ["koa.js", "vue.js", "gcloud datastore", "gcloud functions", "stripe"],
+        "tags" : ["koa.js", "vue.js", "gcloud datastore", "gcloud functions", "sripe"],
         "screenshots" : [
             "/img/websites/bnbcrate.jpg"
         ]
     },
     {
         "name" : "tabbit pastebin",
-        "url": "http://tabbit.org",
+        "url": "https://tabbit.org",
         "description" : "Pastebin that has tabs and allows image uploads. Basiclly a pastebin on roids",
         "tags" : ["python", "webapp2", "datastore", "preact"],
         "screenshots" : [
             "/img/websites/tabbit.jpg"
+        ]
+    },
+    {
+        "name" : "tinystring ",
+        "url": "https://tinystrin.uc.r.appspot.com/",
+        "description" : "A URL shortener. (like bit.ly, etc).",
+        "tags" : ["python", "webapp2", "datastore", "gcloud"],
+        "screenshots" : [
+            "/img/websites/tinystring.jpg"
         ]
     }
 ]
