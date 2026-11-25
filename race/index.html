@@ -608,6 +608,19 @@ function buildPalms(keep, uplit, sh = 1, opt = {}) {
   bases.forEach((b, k) => { o.position.set(b[0], .06, b[1]); o.updateMatrix(); lights.setMatrixAt(k, o.matrix); lights.setColorAt(k, col.set(k % 4 < 2 ? 0xff2bd6 : 0x2de2e6)); });
 }
 
+// Short posts with amber reflectors every 10 m just outside both rails: close things streaming past are what make speed readable.
+function buildPosts() {
+  const step = Math.max(1, Math.round(10 / SP)), n = Math.floor(S / step) * 2, o = new THREE.Object3D();
+  const poles = new THREE.InstancedMesh(new THREE.BoxGeometry(.14, 1, .14).translate(0, .5, 0), new THREE.MeshLambertMaterial({ color: 0x2b2a36 }), n);
+  const caps = new THREE.InstancedMesh(new THREE.BoxGeometry(.18, .2, .17).translate(0, .82, 0), new THREE.MeshBasicMaterial({ color: 0xffc46a }), n);
+  let k = 0;
+  for (let i = 0; i < S - step / 2; i += step) for (const sd of [-1, 1]) {
+    const off = sd * (W + 1);
+    o.position.set(px[i] - tz[i] * off, 0, pz[i] + tx[i] * off); o.rotation.set(0, hd[i], 0); o.updateMatrix();
+    poles.setMatrixAt(k, o.matrix); caps.setMatrixAt(k, o.matrix); k++;
+  }
+  poles.count = caps.count = k; world.add(poles, caps);
+}
 function buildRoad(col, opt = {}) {   // opt.tex: road surface, opt.glow: false for plain daytime rails
   ribbon(-W, W, .02, .02, 12, new THREE.MeshStandardMaterial({ map: opt.tex || roadTex, roughness: .8, metalness: 0, envMapIntensity: .35 }));
   const railMat = new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide });
@@ -1613,7 +1626,7 @@ function selectTrack(id) {
   document.body.classList.toggle('day', !!sk.day);
   sunY = sk.sunY || .16; sunAz = sk.sunAz == null ? Math.PI / 2 : sk.sunAz; placeSun(); sun.visible = sunHalo.visible = sk.sun !== false;
   moonParts.forEach((m, i) => { m.position.copy(SUN_DIR).multiplyScalar(3400 + i * 60); m.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(new V3(), m.position, new V3(0, 1, 0))); });   // face the middle of the sky dome, once
-  if (!TR.world) { world = TR.world = new THREE.Group(); scene.add(world); TR.build(); }
+  if (!TR.world) { world = TR.world = new THREE.Group(); scene.add(world); TR.build(); buildPosts(); }
   world = TR.world; world.visible = true;
   if (!TR.env) TR.env = captureEnv(new V3(TR.envAt[0], TR.envAt[1], TR.envAt[2]));
   scene.environment = TR.env;
@@ -2693,14 +2706,28 @@ function updateCamera(dt) {
 }
 
 // ---------- main loop
-let composer = null;
+let composer = null, bloomPass = null, blurPass = null, blurAmt = 0;
 const bloomPref = {};   // the B key's choice is kept per track, and every track starts with bloom on
 const bloomOn = () => trackId in bloomPref ? bloomPref[trackId] : (bloomPref[trackId] = store.get(bk('bloom')) !== 'off');
 try {
   if (!isTouch && THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
     composer = new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
-    composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .3, .3, .5));
+    composer.addPass(bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .3, .3, .5));
+    if (THREE.ShaderPass) {   // on boost the edges of the view smear outward; the middle stays sharp
+      blurPass = new THREE.ShaderPass({
+        uniforms: { tDiffuse: { value: null }, uAmt: { value: 0 } },
+        vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+        fragmentShader: `uniform sampler2D tDiffuse; uniform float uAmt; varying vec2 vUv;
+          void main() {
+            vec2 c = vec2(.5, .48), d = vUv - c; float w = smoothstep(.12, .7, length(d * vec2(1.6, 1.)));
+            vec4 col = vec4(0.);
+            for (int i = 0; i < 12; i++) col += texture2D(tDiffuse, c + d * (1. - uAmt * w * float(i) / 11.));
+            gl_FragColor = col / 12.;
+          }`
+      });
+      blurPass.enabled = false; composer.addPass(blurPass);
+    }
   }
 } catch (e) { composer = null; }
 let last = performance.now();
@@ -2744,7 +2771,13 @@ let lastFrame = last;   // when the browser last gave a frame; a hidden tab gets
 renderer.setAnimationLoop(() => {
   const now = performance.now(), dt = Math.min(.05, (now - last) / 1000); last = now; lastFrame = now;
   tick(dt);
-  if (composer && bloomOn() && TR.sky.bloom !== 0 && !renderer.xr.isPresenting) { try { composer.render(dt); } catch (e) { composer = null; } }
+  const bloomNow = bloomOn() && TR.sky.bloom !== 0, xr = renderer.xr.isPresenting;
+  blurAmt += ((blurPass && !xr && !reduceMotion && state === 'race' && P.boosting ? .06 * clamp(P.v / BOOST_V, 0, 1) : 0) - blurAmt) * Math.min(1, dt * 5);
+  if (composer && !xr && (bloomNow || blurAmt > .003)) {
+    bloomPass.enabled = bloomNow;
+    if (blurPass) { blurPass.enabled = blurAmt > .003; blurPass.uniforms.uAmt.value = blurAmt; }
+    try { composer.render(dt); } catch (e) { composer = null; }
+  }
   else renderer.render(scene, camera);
 });
 addEventListener('resize', () => {
