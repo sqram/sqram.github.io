@@ -467,7 +467,7 @@ const skySets = { space: spaceSky, clouds: [] };
 (() => {
   const mk = () => canvasTex(512, 256, (g, w) => {
     const puffs = []; let x = 60;
-    while (x < w - 60) { const r = 34 + rnd() * 46, lift = (1 - Math.abs(x - w / 2) / (w / 2)) * 50 * rnd(); puffs.push([x, Math.max(r + 6, 200 - r * (.5 + rnd() * .9) - lift), r]); x += r * (.5 + rnd() * .5); }
+    while (x < w - 60) { const r = 34 + rnd() * 46, lift = (1 - Math.abs(x - w / 2) / (w / 2)) * 50 * rnd(); puffs.push([clamp(x, r + 8, w - r - 8), Math.max(r + 6, 200 - r * (.5 + rnd() * .9) - lift), r]); x += r * (.5 + rnd() * .5); }   // kept inside the canvas, or the end puffs are cut off straight
     g.save(); g.beginPath(); g.rect(0, 0, w, 205); g.clip();
     g.fillStyle = '#b9cdf2'; puffs.forEach(([cx, cy, r]) => { g.beginPath(); g.arc(cx, cy + 10, r, 0, 7); g.fill(); });
     g.fillStyle = '#ffffff'; puffs.forEach(([cx, cy, r]) => { g.beginPath(); g.arc(cx - 4, cy - 6, r * .93, 0, 7); g.fill(); });
@@ -1574,93 +1574,205 @@ function buildWestWorld() {
   startGate('#7a4526', 'WESTWORLD', '#f1e2bf', '#5a2d18');
 }
 
-// ===== Arrakis scenery: a dune sea between the cliffs of the Shield Wall. A dead sandworm lies half-buried
-// across the track, hollowed into a tunnel with a ring of teeth at each torn-open end; far out on the dunes
-// a second, living worm crests the sand and crosses the horizon as the race runs.
-function buildDuneWorld() {
+// ===== Bagan scenery: sunrise over the temple plain beside the Irrawaddy. Hundreds of brick stupas and temples stand
+// in the red earth, some right at the roadside; the road runs through the old city gate, past a gilded stupa, a white
+// temple with a golden spire and a vast brick temple, between toddy palms, while hot-air balloons drift overhead.
+function buildBaganWorld() {
   const scene = world;
   const left = (i, off) => [px[i] + tz[i] * off, pz[i] - tx[i] * off];
   const trackDist = (x, z) => { let d2 = Infinity; for (let i = 0; i < S; i += 5) { const dx = px[i] - x, dz = pz[i] - z, d = dx * dx + dz * dz; if (d < d2) d2 = d; } return Math.sqrt(d2); };
   const nearestTo = (x, z) => { let best = 0, bd = Infinity; for (let i = 0; i < S; i++) { const dx = px[i] - x, dz = pz[i] - z, d = dx * dx + dz * dz; if (d < bd) { bd = d; best = i; } } return best; };
   const ss = (a, b, x) => { x = clamp((x - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
+  const o = new THREE.Object3D(), c = new THREE.Color();
+  const put = (inst, k, x, y, z, ry, sx, sy, sz, color) => { o.position.set(x, y, z); o.rotation.set(0, ry, 0); o.scale.set(sx, sy, sz); o.updateMatrix(); inst.setMatrixAt(k, o.matrix); if (color != null) inst.setColorAt(k, c.set(color)); };
   const single = (geo, mat, x, y, z, sx, sy, sz, parent) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); (parent || scene).add(m); return m; };
-  const cast = [];
+  const merge = gs => {   // several shapes into one geometry, so each kind of building is a single instanced draw
+    const P = [], N = [], U = [];
+    for (const g0 of gs) {
+      const g = g0.index ? g0.toNonIndexed() : g0, p = g.attributes.position.array, n = g.attributes.normal.array, u = g.attributes.uv && g.attributes.uv.array;
+      for (let k = 0; k < p.length; k++) { P.push(p[k]); N.push(n[k]); }
+      for (let k = 0; k < p.length / 3 * 2; k++) U.push(u ? u[k] : 0);
+    }
+    const m = new THREE.BufferGeometry();
+    m.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); m.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+    return m;
+  };
+  const lathe = (pts, seg) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+  const tier = (w, h, y) => new THREE.BoxGeometry(w, h, w).translate(0, y + h / 2, 0);
+  const CX = 130, CZ = -470, BANK = 150, cast = [];   // middle of the loop; the Irrawaddy's bank runs east-west north of the start
 
-  // a packed-sand track between low wind-blown berms
-  buildRoad(0xd8b476, { glow: false, tex: makeRoadTex('#c69a5c', '#a87c42', '#d8b476') });
+  // a red dirt road between low brick kerbs
+  buildRoad(0x8a3e24, { glow: false, tex: makeRoadTex('#a8693f', '#8e5232', '#d2a878') });
 
-  // ---- the dune sea: a rolling sand heightfield, with the rock massifs of the Shield Wall rising where it runs high
-  const mesas = [];
-  for (let k = 0; k < 160 && mesas.length < 22; k++) {
-    const x = -2600 + rnd() * 5400, z = -3200 + rnd() * 5600, r = 130 + rnd() * 260;
-    if (trackDist(x, z) > r + 110 && mesas.every(q => Math.hypot(q[0] - x, q[1] - z) > (q[2] + r) * .8)) mesas.push([x, z, r, 100 + rnd() * 220]);
-  }
-  const duneTex = canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = '#d9b26a'; g.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 3) { g.fillStyle = `rgba(120,80,30,${.05 + rnd() * .08})`; g.fillRect(0, y, w, 1); }
-    for (let i = 0; i < 1200; i++) { g.fillStyle = rnd() < .5 ? `rgba(255,230,180,${rnd() * .12})` : `rgba(80,50,20,${rnd() * .1})`; g.fillRect(rnd() * w, rnd() * h, 2, 2); }
+  // ---- the plain: red earth with dusty scrub and fields, the river to the north and hazy hills beyond
+  const earthTex = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#efe4d8'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1600; i++) { g.fillStyle = rnd() < .5 ? `rgba(80,30,10,${rnd() * .14})` : `rgba(255,250,235,${rnd() * .14})`; g.fillRect(rnd() * w, rnd() * h, 2, 2); }
   });
-  duneTex.wrapS = duneTex.wrapT = THREE.RepeatWrapping;
+  earthTex.wrapS = earthTex.wrapT = THREE.RepeatWrapping;
   const ground = (x, z) => {
-    let hgt = 0;
-    for (const q of mesas) { const d = Math.hypot(q[0] - x, q[1] - z); if (d < q[2]) hgt = Math.max(hgt, q[3] * (1 - ss(q[2] * .7, q[2], d))); }
-    const dune = 7 + 6 * Math.sin(x * .012 + Math.sin(z * .006) * 2) + 4 * Math.sin(z * .018 - x * .004) + 2 * Math.sin((x + z) * .03);
-    return hgt + Math.max(0, dune - 5) * ss(40, 160, trackDist(x, z));
+    const far = Math.hypot(x - CX, z - CZ), across = ss(BANK + 900, BANK + 1300, z);   // the far bank rises into the Tan-Kyi hills
+    return -3 * ss(BANK - 25, BANK + 15, z) * (1 - across) + across * (70 + 40 * Math.sin(x * .004))
+      + ss(2400, 3100, far) * (1 - across) * (110 + 60 * Math.sin(Math.atan2(z - CZ, x - CX) * 5));
   };
   (() => {
     const g = new THREE.PlaneGeometry(6400, 6400, 160, 160).rotateX(-Math.PI / 2), p = g.attributes.position, uv = g.attributes.uv, col = [];
     for (let v = 0; v < p.count; v++) {
-      const x = p.getX(v), z = p.getZ(v), y = ground(x, z);
-      p.setXYZ(v, x, y - .02, z); uv.setXY(v, x / 22, z / 22);
-      if (y > 55) { const band = .7 + .3 * Math.sin(y * .05); col.push(.4 * band, .2 * band, .13 * band); } else { const band = .85 + .15 * Math.sin(y * .4 + x * .01); col.push(.86 * band, .66 * band, .36 * band); }
+      const x = p.getX(v) + CX, z = p.getZ(v) + CZ, y = ground(x, z);
+      p.setXYZ(v, x, y - .02, z); uv.setXY(v, x / 20, z / 20);
+      const field = ss(.55, .8, Math.sin(x * .011 + Math.sin(z * .007) * 2) * Math.cos(z * .013 - x * .003));   // patches of dusty green
+      if (y > 12) { const b = .8 + .2 * Math.sin(y * .07); col.push(.52 * b, .5 * b, .42 * b); }
+      else col.push(.78 - .28 * field, .46 + .02 * field, .3 - .04 * field);
     }
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-    scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: duneTex, vertexColors: true, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: 16 })));
+    scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: earthTex, vertexColors: true, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: 16 })));
+  })();
+  const river = new THREE.Mesh(new THREE.PlaneGeometry(6600, 1100).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xd9b8a0, roughness: .12, metalness: .7, envMapIntensity: 1.2 }));
+  river.position.set(CX, -1.2, BANK + 530); scene.add(river);
+
+  // ---- pagodas: bell stupas on stepped terraces, and square temples with a curved spire, each finished with a gilded tip
+  const stupaBody = merge([tier(.9, .07, 0), tier(.76, .07, .07), tier(.62, .07, .14),
+    lathe([[.27, .21], [.28, .25], [.25, .27], [.27, .32], [.3, .42], [.28, .5], [.22, .58], [.14, .64], [.12, .66], [.13, .68], [.1, .7], [.11, .72], [.08, .74], [.09, .76], [.06, .8], [.045, .86]], 12)]);
+  const stupaTip = lathe([[.045, .86], [.035, .92], [.02, .97], [.004, 1]], 8);
+  const spire = lathe([[.27, .42], [.26, .5], [.23, .6], [.18, .7], [.12, .79], [.07, .86], [.05, .9]], 4).rotateY(Math.PI / 4);
+  const corner = lathe([[.05, 0], [.055, .04], [.035, .08], [.01, .13]], 6);
+  const templeBase = merge([new THREE.BoxGeometry(1, .3, 1).translate(0, .15, 0),
+    ...[[.55, 0], [-.55, 0], [0, .55], [0, -.55]].map(([x, z]) => new THREE.BoxGeometry(x ? .16 : .34, .24, z ? .16 : .34).translate(x, .12, z)),   // porches on all four sides
+    tier(.82, .06, .3), tier(.66, .06, .36),
+    ...[[.36, .36], [-.36, .36], [.36, -.36], [-.36, -.36]].map(([x, z]) => corner.clone().translate(x, .36, z))]);
+  const templeBody = merge([templeBase, spire]);
+  const templeTip = lathe([[.05, .9], [.035, .95], [.015, .99], [.004, 1]], 8);
+  const brickTex = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#d9cfc6'; g.fillRect(0, 0, w, h);
+    for (let y = 0, row = 0; y < h; y += 8, row++) for (let x = (row % 2) * -8; x < w; x += 16) {
+      const v = 200 + rnd() * 55; g.fillStyle = `rgb(${v},${v * .93},${v * .88})`; g.fillRect(x + 1, y + 1, 14, 6);
+    }
+    for (let i = 0; i < 14; i++) { g.fillStyle = `rgba(40,25,20,${.08 + rnd() * .1})`; g.fillRect(rnd() * w, 0, 2 + rnd() * 5, h * (.3 + rnd() * .7)); }   // weathering streaks
+  });
+  brickTex.wrapS = brickTex.wrapT = THREE.RepeatWrapping; brickTex.repeat.set(3, 3);
+  const brickMat = new THREE.MeshLambertMaterial({ map: brickTex });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xffc23a, metalness: .9, roughness: .28, emissive: 0x3a2000 });
+  const BRICK = [0xb8623f, 0xa65535, 0xc4784e, 0x9c4e33, 0xb06a48, 0x8a5a44], WHITE = 0xf0e8da;
+
+  // the landmarks first, so the rest of the plain is built around them
+  const placed = [];   // [x, z, half width]
+  const side = (i, off, out) => { const a = left(i, off), b = left(i, -off), da = Math.hypot(a[0] - CX, a[1] - CZ), db = Math.hypot(b[0] - CX, b[1] - CZ); return (da > db) === out ? a : b; };
+  const landmark = (body, tip, x, z, h, w, bodyMat, tipMat) => {
+    single(body, bodyMat, x, 0, z, w, h, w); single(tip, tipMat, x, 0, z, w, h, w);
+    placed.push([x, z, w * .6]); cast.push([x, z, w * .45, w * .45, h * .45]);
+  };
+  { const [x, z] = side(nearestTo(960, -520), W + 70, true); landmark(stupaBody, stupaTip, x, z, 46, 52, goldMat, goldMat); }   // the gilded stupa
+  { const [x, z] = side(nearestTo(-700, -540), W + 75, true); const w = 52;   // the white temple, its spire gilded
+    single(templeBase, new THREE.MeshLambertMaterial({ map: brickTex, color: WHITE }), x, 0, z, w, w, w); single(spire, goldMat, x, 0, z, w * 1.01, w, w * 1.01); single(templeTip, goldMat, x, 0, z, w, w, w);
+    placed.push([x, z, w * .6]); cast.push([x, z, w * .45, w * .45, w * .45]); }
+  landmark(templeBody, templeTip, CX - 40, CZ + 30, 48, 70, new THREE.MeshLambertMaterial({ map: brickTex, color: 0x9c4e33 }), goldMat);   // the vast brick temple in the middle
+  { const [x, z] = side(nearestTo(360, 10), W + 80, false); landmark(templeBody, templeTip, x, z, 60, 50, new THREE.MeshLambertMaterial({ map: brickTex, color: 0xe6d8c2 }), goldMat); }
+
+  // the rest: thickest along the road, so the race weaves between them, thinning out across the plain
+  const spots = [];
+  for (let k = 0; k < 14000 && spots.length < 520; k++) {
+    const nearRoad = rnd() < .6, temple = rnd() < .45;
+    let x, z;
+    if (nearRoad) { const i = Math.floor(rnd() * S); [x, z] = left(i, (rnd() < .5 ? -1 : 1) * (W + 10 + Math.pow(rnd(), 1.5) * 260)); }
+    else { const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 2400; x = CX + Math.cos(a) * r; z = CZ + Math.sin(a) * r; }
+    const td = trackDist(x, z), close = td < 70;
+    const h = temple ? (close ? 9 + rnd() * 9 : 10 + rnd() * rnd() * 30) : (close ? 6 + rnd() * 9 : 6 + rnd() * rnd() * 20);
+    const hw = h * (temple ? .62 : .48);
+    if (z > BANK - 20 - hw || td < W + 6 + hw || Math.hypot(x - CX, z - CZ) > 2500) continue;
+    if (placed.some(q => Math.hypot(q[0] - x, q[1] - z) < (q[2] + hw) * 1.05)) continue;
+    placed.push([x, z, hw]); spots.push([x, z, h, temple]);
+    cast.push([x, z, hw * .8, hw * .8, h * .45]);
+  }
+  const make = (body, tip, list) => {
+    const b = new THREE.InstancedMesh(body, brickMat, list.length), t = new THREE.InstancedMesh(tip, goldMat, list.length);
+    list.forEach(([x, z, h], k) => {
+      const r = rnd(), col = r < .1 ? WHITE : BRICK[Math.floor(rnd() * BRICK.length)], ry = Math.floor(rnd() * 4) * Math.PI / 2 + (rnd() - .5) * .3;
+      put(b, k, x, 0, z, ry, h, h, h, col); put(t, k, x, 0, z, ry, h, h, h);
+    });
+    scene.add(b, t);
+  };
+  make(stupaBody, stupaTip, spots.filter(q => !q[3])); make(templeBody, templeTip, spots.filter(q => q[3]));
+
+  // ---- the old city gate: a brick wall with a pointed arch the road runs through, broken walls running off either side
+  (() => {
+    let gI = 0, best = Infinity;
+    for (let i = Math.floor(S * .3); i < S * .75; i++) { const bend = Math.abs(wrapA(hd[(i + 25) % S] - hd[i - 25])); if (bend < best) { best = bend; gI = i; } }
+    const gate = new THREE.Group(); gate.position.set(px[gI], 0, pz[gI]); gate.rotation.y = hd[gI]; scene.add(gate);
+    const hw = W + 9, aw = W + 2, H = 16, sh = new THREE.Shape();
+    sh.moveTo(-hw, 0); sh.lineTo(-aw, 0); sh.lineTo(-aw, 7.5); sh.quadraticCurveTo(-aw * .92, 11.5, 0, 13); sh.quadraticCurveTo(aw * .92, 11.5, aw, 7.5);
+    sh.lineTo(aw, 0); sh.lineTo(hw, 0); sh.lineTo(hw, H); sh.lineTo(-hw, H); sh.closePath();
+    const wallMat = new THREE.MeshLambertMaterial({ map: brickTex, color: 0xa65a3c });
+    const arch = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 9, bevelEnabled: false }).translate(0, 0, -4.5), wallMat);
+    gate.add(arch);   // the shape is drawn across the road
+    [-1, 1].forEach(sd => {
+      single(new THREE.BoxGeometry(1, 1, 1).translate(0, .5, 0), wallMat, sd * (hw - 2.5), H, 0, 5, 2.5, 10, gate);   // crowning blocks over the piers
+      for (let k = 0; k < 9; k++) { const len = 10, ht = 4 + rnd() * 4.5 - k * .25; single(new THREE.BoxGeometry(1, 1, 1).translate(0, .5, 0), wallMat, sd * (hw + len * (k + .5)), 0, (rnd() - .5) * .6, len + .2, Math.max(1.5, ht), 4.2, gate); }
+      const shrine = new THREE.Group(); shrine.position.set(sd * (hw + 6), 0, 9); gate.add(shrine);   // a guardian spirits' shrine at each side
+      single(new THREE.BoxGeometry(5, 4, 4).translate(0, 2, 0), new THREE.MeshLambertMaterial({ color: WHITE }), 0, 0, 0, 1, 1, 1, shrine);
+      single(stupaTip, goldMat, 0, 4, 0, 6, 4, 6, shrine);
+    });
   })();
 
-  // ---- the dead sandworm: a vast carcass half-swallowed by the dunes, hollowed into a tunnel the track runs through
-  const skinTex = canvasTex(256, 256, (g, w, h) => {
-    g.fillStyle = '#6b5a46'; g.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 18) { g.fillStyle = 'rgba(30,20,10,.5)'; g.fillRect(0, y, w, 4); g.fillStyle = 'rgba(150,128,92,.3)'; g.fillRect(0, y + 4, w, 2); }
-    for (let i = 0; i < 2200; i++) { g.fillStyle = rnd() < .5 ? `rgba(20,12,6,${rnd() * .3})` : `rgba(160,132,88,${rnd() * .2})`; g.fillRect(rnd() * w, rnd() * h, 2, 2); }
-    for (let i = 0; i < 6; i++) { g.fillStyle = '#2a0e0a'; const x = rnd() * w, y = rnd() * h; g.save(); g.translate(x, y); g.rotate(rnd() * 6); g.beginPath(); g.ellipse(0, 0, 16 + rnd() * 14, 6 + rnd() * 5, 0, 0, 7); g.fill(); g.restore(); }
+  // ---- toddy palms: tall straight trunks topped with a ball of fan-shaped leaves, and dusty scrub between
+  const fanTex = canvasTex(128, 128, (g, w, h) => {
+    g.translate(64, 64);
+    for (let k = 0; k < 40; k++) { const a = k / 40 * Math.PI * 2; g.strokeStyle = k % 2 ? '#3f6a2c' : '#557f36'; g.lineWidth = 5; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * 62, Math.sin(a) * 62); g.stroke(); }
+    g.fillStyle = '#4a3a22'; g.beginPath(); g.arc(0, 0, 5, 0, 7); g.fill();
   });
-  skinTex.wrapS = skinTex.wrapT = THREE.RepeatWrapping; skinTex.repeat.set(7, 2);
-  const skinMat = new THREE.MeshLambertMaterial({ map: skinTex, side: THREE.DoubleSide });
-  const wI = nearestTo(820, -640), wx = px[wI], wz = pz[wI], whd = hd[wI];
-  const wormLen = 150, wormR = W + 9, cy = wormR * .76;
-  const wormGroup = new THREE.Group(); wormGroup.position.set(wx, 0, wz); wormGroup.rotation.y = whd; scene.add(wormGroup);
-  const tunnel = new THREE.Mesh(new THREE.CylinderGeometry(wormR, wormR * .92, wormLen, 28, 1, true), skinMat);
-  tunnel.rotation.x = Math.PI / 2; tunnel.position.y = cy; wormGroup.add(tunnel);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff5a3c, blending: THREE.AdditiveBlending, transparent: true, opacity: .3, depthWrite: false }));
-  glow.position.set(0, cy, 0); glow.scale.set(wormR * 2.4, wormR * 2.4, 1); wormGroup.add(glow);
-  const toothMat = new THREE.MeshLambertMaterial({ color: 0xe8dcc0 });
-  [-1, 1].forEach(end => { const n = 18, rT = wormR * .82; for (let k = 0; k < n; k++) {
-    const a = k / n * Math.PI * 2, jx = Math.cos(a) * rT, jy = cy + Math.sin(a) * rT, len = 2.2 + rnd() * 2.6;
-    const tooth = new THREE.Mesh(new THREE.ConeGeometry(.55 + rnd() * .4, len, 7), toothMat);
-    tooth.position.set(jx, jy, end * wormLen * .49); tooth.rotation.z = a + Math.PI / 2; tooth.translateY(len * .4);
-    wormGroup.add(tooth);
-  } });
-  cast.push([wx, wz, wormR, wormR, wormR * 1.6]);
+  const fan = new THREE.CircleGeometry(1, 10, 0, Math.PI), fans = [];
+  for (let f = 0; f < 13; f++) {
+    const g = fan.clone().scale(2.3, 2.3, 1).rotateX(-(.15 + rnd() * 1.1) * (f < 9 ? 1 : -.3)).rotateY(f / 13 * Math.PI * 2 + rnd() * .4).translate(0, 1, 0);
+    fans.push(g);
+  }
+  const crownGeo = merge(fans);
+  const palmSpots = [];
+  for (let k = 0; k < 6000 && palmSpots.length < 300; k++) {
+    const i = Math.floor(rnd() * S), [x, z] = left(i, (rnd() < .5 ? -1 : 1) * (W + 8 + rnd() * rnd() * 320));
+    if (z > BANK - 10 || trackDist(x, z) < W + 6 || placed.some(q => Math.hypot(q[0] - x, q[1] - z) < q[2] + 2)) continue;
+    palmSpots.push([x, z]);
+  }
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(.22, .32, 1, 7).translate(0, .5, 0), new THREE.MeshLambertMaterial({ color: 0x5a4636 }), palmSpots.length);
+  const crowns = new THREE.InstancedMesh(crownGeo, new THREE.MeshLambertMaterial({ map: fanTex, side: THREE.DoubleSide }), palmSpots.length);
+  palmSpots.forEach(([x, z], k) => {
+    const h = 11 + rnd() * 8, ry = rnd() * 6.3;
+    put(trunks, k, x, 0, z, 0, 1, h, 1); put(crowns, k, x, h - 1.4, z, ry, 1, 1, 1);
+  });
+  scene.add(trunks, crowns);
+  const scrub = [];
+  for (let k = 0; k < 4000 && scrub.length < 700; k++) {
+    const i = Math.floor(rnd() * S), [x, z] = left(i, (rnd() < .5 ? -1 : 1) * (W + 4 + rnd() * rnd() * 260));
+    if (z < BANK - 6 && trackDist(x, z) > W + 3) scrub.push([x, z]);
+  }
+  const bushes = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x6f7a3c }), scrub.length);
+  scrub.forEach(([x, z], k) => { const s = .7 + rnd() * rnd() * 2.6; put(bushes, k, x, s * .35, z, rnd() * 6, s * (1 + rnd() * .5), s * .75, s, rnd() < .3 ? 0x8a8a4a : 0x5f6e34); });
+  scene.add(bushes);
 
-  // ---- the living sandworm: far out on the dunes, always moving, cresting the sand as it swims through it
-  const wi2 = nearestTo(40, -900), [bx0, bz0] = left(wi2, 680);
-  const worm2 = new THREE.Group(); worm2.position.set(bx0, 0, bz0); scene.add(worm2);
-  const humpMat = new THREE.MeshLambertMaterial({ map: skinTex });
-  const humps = []; for (let k = 0; k < 7; k++) { const r = 11 - k * .7, h = single(new THREE.SphereGeometry(r, 12, 8), humpMat, -k * 24, r * .4, 0, 1, .42, 1, worm2); humps.push([h, r]); }
-  const dustMat = new THREE.MeshBasicMaterial({ map: glowTex, color: 0xe8cf9a, transparent: true, opacity: .5, depthWrite: false, blending: THREE.AdditiveBlending });
-  const dust = [0, 1, 2, 3, 4].map(() => single(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dustMat, 0, .4, 0, 1, 1, 1, worm2));
-  TRACKS.dune.tick = t => {
-    const range = 1300, u = (t * 16) % (range * 2), travel = u < range ? u : range * 2 - u, dir = u < range ? 1 : -1;
-    const wx2 = bx0 + travel * dir, wz2 = bz0 + Math.sin(travel * .0035) * 160;
-    worm2.position.set(wx2, ground(wx2, wz2) - 3, wz2);
-    worm2.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
-    humps.forEach(([h, r], k) => { h.position.y = r * .4 + Math.max(0, Math.sin(t * 2.4 - k * .9)) * r * .5; });
-    dust.forEach((d, k) => { const u2 = (t * 1.1 + k / 5) % 1; d.position.set(14 - u2 * 26, .3, Math.sin(k * 2.3) * 5); d.scale.setScalar(3 + u2 * 20); d.material.opacity = .5 * (1 - u2); });
+  // ---- hot-air balloons drifting east toward the rising sun, burners flaring now and then
+  const envelope = lathe([[.1, 0], [.22, .1], [.38, .3], [.48, .5], [.5, .62], [.47, .76], [.38, .88], [.22, .97], [0, 1]], 16);
+  const designs = [['#d9b46a', '#8a5a2a'], ['#d9b46a', '#d9b46a'], ['#e0402a', '#ffd23a'], ['#2a6ac0', '#f2f2f2'], ['#e8a028', '#6a2a8a']].map(([a, b]) => new THREE.MeshLambertMaterial({ map: canvasTex(256, 64, (g, w, h) => {
+    for (let k = 0; k < 16; k++) { g.fillStyle = k % 2 ? a : b; g.fillRect(k * w / 16, 0, w / 16 + 1, h); }
+    g.fillStyle = 'rgba(60,30,10,.55)'; g.fillRect(0, h * .52, w, h * .05);
+  }) }));
+  const basketMat = new THREE.MeshLambertMaterial({ color: 0x6a4a2a }), balloons = [];
+  for (let k = 0; k < 14; k++) {
+    const b = new THREE.Group(), s = 16 + rnd() * 5;
+    single(envelope, designs[k % designs.length], 0, 0, 0, s * .85, s, s * .85, b);
+    single(new THREE.BoxGeometry(1.5, 1.2, 1.5), basketMat, 0, -3.4, 0, 1, 1, 1, b);
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffa040, blending: THREE.AdditiveBlending, transparent: true, opacity: 0, depthWrite: false }));
+    flame.position.y = -.5; flame.scale.set(5, 5, 1); b.add(flame);
+    scene.add(b);
+    balloons.push({ b, flame, x0: -2000 + rnd() * 4400, z: CZ - 1300 + rnd() * 1900, y: 70 + rnd() * 230, v: 2 + rnd() * 2.5, ph: rnd() * 9 });
+  }
+  TRACKS.bagan.tick = t => {
+    for (const q of balloons) {
+      q.b.position.set(-2200 + ((q.x0 + 2200 + t * q.v) % 4600), q.y + Math.sin(t * .15 + q.ph) * 8, q.z);
+      q.b.rotation.y = t * .02 + q.ph;
+      q.flame.material.opacity = Math.sin(t * .9 + q.ph * 3) > .93 ? .9 : 0;
+    }
   };
 
   castBoxShadows(cast);
-  startGate('#8a3420', 'ARRAKIS', '#1c1208', '#e8c07a');
+  startGate('#9c4a2a', 'BAGAN', '#f3e3c0', '#7a2e16');
 }
 
 // ---------- track registry
@@ -1697,12 +1809,12 @@ const TRACKS = {
     sky: { top: '#2f66c4', mid: '#8fc2ea', hor: '#f3dcb4', warm: '#fff0c8', fog: [900, 5200], set: 'clouds', day: true, sun: false, sunY: .62, sunAz: Math.PI + .6, bloom: 0, shadowOff: .9,
       light: { sky: 0xd6e6ff, ground: 0xe0b888, hemi: .68, sun: 0xffe6c0, dir: .6 } },
     envAt: [100, 9, 0], build: buildWestWorld },
-  dune: { name: 'Arrakis', eyebrow: 'Dune sea · 3 laps · 10 cars', music: 'music/Vancouver.mp3',
-    blurb: 'Out across the dune sea beneath the Shield Wall, through the hollowed-out body of a dead sandworm, while a second one crests the sand on the horizon, always moving.',
-    ctrl: [[0, 0], [380, -30], [720, -180], [880, -480], [760, -800], [420, -980], [40, -900], [-320, -760], [-560, -480], [-600, -160], [-380, 40], [-140, 60]],
-    sky: { top: '#7a2a10', mid: '#d9682c', hor: '#f5b35a', warm: '#ffe2a0', fog: [700, 4200], set: 'clouds', day: true, sun: true, sunY: .3, sunAz: Math.PI * .2, bloom: 0, shadowOff: .8,
-      light: { sky: 0xffc98a, ground: 0xb3722e, hemi: .7, sun: 0xffdca0, dir: .62 } },
-    envAt: [100, 10, -60], build: buildDuneWorld }
+  bagan: { name: 'Bagan', eyebrow: 'Temple plain · 3 laps · 10 cars', music: 'music/Vancouver.mp3',
+    blurb: 'Sunrise on the plain of a thousand temples: weave between the brick pagodas, through the old city gate, past the golden stupa and along the Irrawaddy, with hot-air balloons drifting overhead.',
+    ctrl: [[0, 0], [360, 10], [680, -50], [900, -230], [960, -520], [820, -790], [540, -900], [260, -800], [40, -900], [-260, -960], [-560, -820], [-700, -540], [-620, -260], [-420, -60], [-200, -10]],
+    sky: { top: '#4a64a8', mid: '#d88a6e', hor: '#f4c494', warm: '#fff0c8', fog: [600, 3800], set: 'clouds', cloudAlpha: .4, day: true, sun: false, sunY: .3, sunAz: Math.PI / 2, bloom: 0, shadowOff: .8,
+      light: { sky: 0xffd6b0, ground: 0x9a5a3a, hemi: .72, sun: 0xffd6a0, dir: .62 } },
+    envAt: [200, 10, 0], build: buildBaganWorld }
 };
 let TR = null, trackId = TRACKS[store.get('track')] ? store.get('track') : 'grid';
 const bk = k => trackId === 'grid' ? k : k + ':' + trackId;   // best times are kept per track
@@ -1716,6 +1828,15 @@ function selectTrack(id) {
   u.top.value.set(sk.top); u.mid.value.set(sk.mid); u.warm.value.set(sk.warm); HORIZON.set(sk.hor);
   scene.background.copy(HORIZON); scene.fog.color.copy(HORIZON); scene.fog.near = sk.fog[0]; scene.fog.far = sk.fog[1];
   for (const k in skySets) skySets[k].forEach(obj => { obj.visible = sk.set === k; });
+  skySets.clouds.forEach(obj => { obj.material.opacity = sk.cloudAlpha || 1; });   // a track may thin its clouds to a haze
+  if (sk.cloudAlpha && sk.set === 'clouds') {   // see-through clouds would show darker where they overlap: keep only ones that do not, smallest first
+    const kept = [];
+    [...skySets.clouds].sort((a, b) => a.scale.x - b.scale.x).forEach(m => {
+      const az = Math.atan2(m.position.z, m.position.x), el = Math.asin(m.position.y / 3600) * 3600, w = m.scale.x;   // puffs fill the card's middle 77% across, from .17w above its centre to .15w below
+      if (kept.some(q => Math.abs(wrapA(az - q.az)) * 3600 < .385 * (w + q.w) && el - .15 * w < q.el + .17 * q.w && q.el - .15 * q.w < el + .17 * w)) m.visible = false;
+      else kept.push({ az, el, w });
+    });
+  }
   const li = sk.light || { sky: 0xff8fd8, ground: 0x2a0a4a, hemi: .95, sun: 0xffb070, dir: .75 };
   hemi.color.set(li.sky); hemi.groundColor.set(li.ground); hemi.intensity = li.hemi; sunLight.color.set(li.sun); sunLight.intensity = li.dir;
   document.body.classList.toggle('day', !!sk.day);
